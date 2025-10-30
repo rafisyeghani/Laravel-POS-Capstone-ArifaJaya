@@ -2,83 +2,63 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\OrderStoreRequest;
 use App\Models\Order;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $orders = new Order();
-        if ($request->start_date) {
-            $orders = $orders->where('created_at', '>=', $request->start_date);
-        }
-        if ($request->end_date) {
-            $orders = $orders->where('created_at', '<=', $request->end_date . ' 23:59:59');
-        }
-        $orders = $orders->with(['items.product', 'payments', 'customer'])->latest()->paginate(10);
-
-        $total = $orders->map(function ($i) {
-            return $i->total();
-        })->sum();
-        $receivedAmount = $orders->map(function ($i) {
-            return $i->receivedAmount();
-        })->sum();
-
-        // return response()->json($orders);
-
-        return view('orders.index', compact('orders', 'total', 'receivedAmount'));
+        $orders = Order::with(['store', 'membership', 'cashierUser', 'details'])->get();
+        return response()->json($orders);
     }
 
-    public function store(OrderStoreRequest $request)
+    public function store(Request $request)
     {
-        $order = Order::create([
-            'customer_id' => $request->customer_id,
-            'user_id' => $request->user()->id,
+        $validated = $request->validate([
+            'store_id' => 'required|exists:stores,id',
+            'membership_id' => 'nullable|exists:memberships,id',
+            'cashier_user_id' => 'required|exists:users,id',
+            'order_code' => 'required|string|unique:orders',
+            'order_date' => 'required|date',
+            'subtotal' => 'required|integer',
+            'total_amount' => 'required|integer',
+            'payment_method' => 'required|in:cash,card,e-wallet,transfer',
+            'payment_status' => 'required|in:pending,paid,declined',
+            'is_membership_transaction' => 'boolean',
         ]);
 
-        $cart = $request->user()->cart()->get();
-        foreach ($cart as $item) {
-            $order->items()->create([
-                'price' => $item->price * $item->pivot->quantity,
-                'quantity' => $item->pivot->quantity,
-                'product_id' => $item->id,
-            ]);
-            $item->quantity = $item->quantity - $item->pivot->quantity;
-            $item->save();
-        }
-        $request->user()->cart()->detach();
-        $order->payments()->create([
-            'amount' => $request->amount,
-            'user_id' => $request->user()->id,
-        ]);
-        return 'success';
+        $order = Order::create($validated);
+        return response()->json($order, 201);
     }
-    public function partialPayment(Request $request)
+
+    public function show(Order $order)
     {
-        // return $request;
-        $orderId = $request->order_id;
-        $amount = $request->amount;
+        return response()->json($order->load(['store', 'membership', 'cashierUser', 'details']));
+    }
 
-        // Find the order
-        $order = Order::findOrFail($orderId);
+    public function update(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'store_id' => 'exists:stores,id',
+            'membership_id' => 'nullable|exists:memberships,id',
+            'cashier_user_id' => 'exists:users,id',
+            'order_code' => 'string|unique:orders,order_code,' . $order->id,
+            'order_date' => 'date',
+            'subtotal' => 'integer',
+            'total_amount' => 'integer',
+            'payment_method' => 'in:cash,card,e-wallet,transfer',
+            'payment_status' => 'in:pending,paid,declined',
+            'is_membership_transaction' => 'boolean',
+        ]);
 
-        // Check if the amount exceeds the remaining balance
-        $remainingAmount = $order->total() - $order->receivedAmount();
-        if ($amount > $remainingAmount) {
-            return redirect()->route('orders.index')->withErrors('Amount exceeds remaining balance');
-        }
+        $order->update($validated);
+        return response()->json($order);
+    }
 
-        // Save the payment
-        DB::transaction(function () use ($order, $amount) {
-            $order->payments()->create([
-                'amount' => $amount,
-                'user_id' => auth()->user()->id,
-            ]);
-        });
-
-        return redirect()->route('orders.index')->with('success', 'Partial payment of ' . config('settings.currency_symbol') . number_format($amount, 2) . ' made successfully.');
+    public function destroy(Order $order)
+    {
+        $order->delete();
+        return response()->json(null, 204);
     }
 }

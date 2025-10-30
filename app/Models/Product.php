@@ -3,24 +3,38 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
     protected $fillable = [
+        'product_code',
         'name',
         'description',
-        'image',
-        'price',
-        'quantity',
-        'status'
+        'unit',
+        'actual_price',
+        'selling_price',
+        'membership_price',
     ];
 
-    public function getImageUrl()
+    protected $casts = [
+        'actual_price' => 'integer',
+        'selling_price' => 'integer',
+        'membership_price' => 'integer',
+    ];
+
+    public function warehouseStocks(): HasMany
     {
-        if ($this->image) {
-            return Storage::url($this->image);
-        }
-        return asset('images/img-placeholder.jpg');
+        return $this->hasMany(WarehouseStock::class);
+    }
+
+    public function stockRequestDetails(): HasMany
+    {
+        return $this->hasMany(StockRequestDetail::class);
+    }
+
+    public function orderDetails(): HasMany
+    {
+        return $this->hasMany(OrderDetail::class);
     }
 }

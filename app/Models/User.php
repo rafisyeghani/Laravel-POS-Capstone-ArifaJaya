@@ -2,65 +2,56 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
+    use Notifiable;
+
     protected $fillable = [
+        'store_id',
         'first_name',
         'last_name',
-        'email',
+        'username',
         'password',
+        'roles',
     ];
 
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var array
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * The attributes that should be cast to native types.
-     *
-     * @var array
-     */
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    public function cart()
+    public function store(): BelongsTo
     {
-        return $this->belongsToMany(Product::class, 'user_cart')->withPivot('quantity');
+        return $this->belongsTo(Store::class);
     }
 
-    public function purchaseCart(): BelongsToMany
+    public function registeredMemberships(): HasMany
     {
-        return $this->belongsToMany(Product::class, 'purchase_cart')
-            ->withPivot('quantity')
-            ->withTimestamps();
+        return $this->hasMany(Membership::class, 'registered_by_user_id');
     }
 
-    public function getFullname()
+    public function requestedStockRequests(): HasMany
     {
-        return $this->first_name . ' ' . $this->last_name;
+        return $this->hasMany(StockRequest::class, 'requested_by_user_id');
     }
 
-    public function getAvatar()
+    public function approvedStockRequests(): HasMany
     {
-        return 'https://www.gravatar.com/avatar/' . md5($this->email);
+        return $this->hasMany(StockRequest::class, 'approved_by_user_id');
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'cashier_user_id');
     }
 }

@@ -3,58 +3,48 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
     protected $fillable = [
-        'customer_id',
-        'user_id'
+        'store_id',
+        'membership_id',
+        'cashier_user_id',
+        'order_code',
+        'order_date',
+        'subtotal',
+        'total_amount',
+        'payment_method',
+        'payment_status',
+        'is_membership_transaction',
     ];
 
-    public function items()
+    protected $casts = [
+        'order_date' => 'date',
+        'subtotal' => 'integer',
+        'total_amount' => 'integer',
+        'is_membership_transaction' => 'boolean',
+    ];
+
+    public function store(): BelongsTo
     {
-        return $this->hasMany(OrderItem::class);
+        return $this->belongsTo(Store::class);
     }
 
-    public function payments()
+    public function membership(): BelongsTo
     {
-        return $this->hasMany(Payment::class);
+        return $this->belongsTo(Membership::class);
     }
 
-    public function customer()
+    public function cashierUser(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class, 'cashier_user_id');
     }
 
-    public function getCustomerName()
+    public function details(): HasMany
     {
-        if ($this->customer) {
-            return $this->customer->first_name . ' ' . $this->customer->last_name;
-        }
-        return __('customer.working');
-    }
-
-    public function total()
-    {
-        return $this->items->map(function ($i) {
-            return $i->price;
-        })->sum();
-    }
-
-    public function formattedTotal()
-    {
-        return number_format($this->total(), 2);
-    }
-
-    public function receivedAmount()
-    {
-        return $this->payments->map(function ($i) {
-            return $i->amount;
-        })->sum();
-    }
-
-    public function formattedReceivedAmount()
-    {
-        return number_format($this->receivedAmount(), 2);
+        return $this->hasMany(OrderDetail::class);
     }
 }
