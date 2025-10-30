@@ -6,30 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
     public function up()
     {
         Schema::create('products', function (Blueprint $table) {
-            $table->id();
+            $table->bigIncrements('id');
+            $table->string('product_code', 50)->unique();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('image')->nullable();
-            $table->string('barcode')->unique();
-            $table->decimal('price', 8, 2);
-            $table->boolean('status')->default(true);
-            $table->timestamps();
+            $table->string('unit', 30);
+            $table->integer('actual_price');
+            $table->integer('selling_price');
+            $table->integer('membership_price');
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
     public function down()
     {
         Schema::dropIfExists('products');
